@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Nay La Cua Tao</title>
+    <!-- 1. Thêm link Google Fonts ở đây -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            margin: 0; 
+            background: black; 
+            overflow: hidden; 
+            color: white; 
+            /* 2. Áp dụng font cho menu */
+            font-family: 'Press Start 2P', cursive; 
+            text-align: center; 
+        }
+        canvas { display: none; margin: auto; background: #111; border: 2px solid #333; }
+        #menu { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; cursor: pointer; }
+        .start-btn { 
+            padding: 15px 30px; 
+            font-size: 14px; /* Giảm size vì font này khá to */
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin-top: 20px;
+            font-family: 'Press Start 2P', cursive;
+        }
+        h1 { font-size: 40px; margin-bottom: 10px; }
+        p { font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div id="menu" onclick="startGame()">
+    <h1>ChieuBhong</h1>
+    <p>Bấm vào màn hình để chơi</p>
+    <button class="start-btn">Bấm Vào Đây Nha Các Bố</button>
+</div>
+
+<audio id="bgMusic" loop>
+    <source src="poorartistt-90s-game-music-no-copyright-352850.mp3" type="audio/mpeg">
+</audio>
+
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const bgMusic = document.getElementById("bgMusic");
+bgMusic.volume = 0.5;
+
+let playerImg = new Image();
+let imageLoaded = false;
+
+playerImg.onload = function() {
+    imageLoaded = true;
+};
+
+playerImg.onerror = function() {
+    console.error("❌ Lỗi: Không tìm thấy file Quill.png");
+    imageLoaded = true; 
+    playerImg = null;    
+};
+
+playerImg.src = "Quill.png";
+
+let lanes = [40, 140, 240, 340];
+let player = { x: 180, y: 500, width: 50, height: 50, lane: 1 };
+let obstacles = [];
+let coins = [];
+let coinScore = 0;
+let score = 0;
+let speed = 4;
+let gameOver = false;
+let started = false;
+
+function spawnObstacle() {
+    if(gameOver) return;
+    let lane = Math.floor(Math.random() * 4);
+    obstacles.push({ x: lanes[lane] + 5, y: -60, width: 50, height: 50 });
+}
+
+function spawnCoin() {
+    if(gameOver) return;
+    let lane = Math.floor(Math.random() * 4);
+    coins.push({ x: lanes[lane] + 30, y: -20 });
+}
+
+function startGame() {
+    if(started) return;
+    started = true;
+    document.getElementById("menu").style.display = "none";
+    canvas.style.display = "block";
+    bgMusic.play().catch(err => console.log("Lỗi nhạc: ", err));
+    setInterval(spawnObstacle, 1200);
+    setInterval(spawnCoin, 1500);
+    draw();
+}
+
+document.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !started) startGame();
+    if(gameOver && e.key === "Enter") location.reload();
+    if(!started || gameOver) return;
+    if(e.key === "ArrowLeft" && player.lane > 0) player.lane--;
+    if(e.key === "ArrowRight" && player.lane < 3) player.lane++;
+});
+
+function draw() {
+    if (!imageLoaded) {
+        requestAnimationFrame(draw);
+        return;
+    }
+
+    if(gameOver) {
+        ctx.fillStyle = "white";
+        // Sửa font chữ Game Over
+        ctx.font = "20px 'Press Start 2P'"; 
+        ctx.textAlign = "center";
+        ctx.fillText("Bọn Ngu =))", 200, 300);
+        ctx.font = "12px 'Press Start 2P'";
+        ctx.fillText("Enter để chơi lại", 200, 350);
+        return;
+    }
+
+    ctx.fillStyle = "#111";
+    ctx.fillRect(0, 0, 400, 600);
+
+    ctx.strokeStyle = "#333";
+    for(let i=1; i<4; i++) {
+        ctx.beginPath(); ctx.moveTo(i*100, 0); ctx.lineTo(i*100, 600); ctx.stroke();
+    }
+
+    player.x = lanes[player.lane] + 25; 
+    if(playerImg) {
+        ctx.drawImage(playerImg, player.x - 25, player.y, player.width, player.height);
+    } else {
+        ctx.fillStyle = "lime";
+        ctx.fillRect(player.x - 25, player.y, player.width, player.height);
+    }
+
+    ctx.fillStyle = "red";
+    for(let i = 0; i < obstacles.length; i++) {
+        let o = obstacles[i];
+        o.y += speed;
+        ctx.fillRect(o.x, o.y, o.width, o.height);
+        if(player.x - 25 < o.x + o.width && player.x + 25 > o.x &&
+           player.y < o.y + o.height && player.y + player.height > o.y) {
+            gameOver = true;
+        }
+    }
+
+    ctx.fillStyle = "yellow";
+    for (let i = 0; i < coins.length; i++) {
+        let c = coins[i];
+        c.y += speed;
+        ctx.beginPath(); ctx.arc(c.x, c.y, 10, 0, Math.PI * 2); ctx.fill();
+        if (player.x - 25 < c.x + 10 && player.x + 25 > c.x - 10 &&
+            player.y < c.y + 10 && player.y + player.height > c.y - 10) {
+            coinScore++;
+            coins.splice(i, 1);
+            i--;
+        }
+    }
+
+    score++;
+    ctx.fillStyle = "white";
+    // Sửa font chữ Score và Coins
+    ctx.font = "12px 'Press Start 2P'";
+    ctx.textAlign = "left";
+    ctx.fillText("Score: " + score, 15, 30);
+    ctx.fillText("Coins: " + coinScore, 15, 55);
+    // 1. Tăng điểm số
+score++;
+
+// 2. Logic tăng tốc độ: Cứ mỗi 500 điểm thì tăng thêm 0.5 speed
+if (score % 500 === 0) {
+    let speedMoi = speed + 2;
+    
+    // 3. Giới hạn tốc độ: Ví dụ tối đa là 20 (Super Hard)
+    // Nếu speedMoi vượt quá 20, nó sẽ lấy đúng mức 20
+    speed = Math.min(speedMoi, 20); 
+    
+    console.log("Tốc độ hiện tại: " + speed); // In ra để bạn theo dõi
+}
+    requestAnimationFrame(draw);
+}
+</script>
+</body>
+</html>
