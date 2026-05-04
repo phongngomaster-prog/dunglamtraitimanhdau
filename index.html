@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Game Nay La Cua Bo</title>
+    <title>Game Nay La Cua Tao</title>
     <!-- 1. Thêm link Google Fonts ở đây -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     
@@ -44,11 +44,50 @@
     <source src="poorartistt-90s-game-music-no-copyright-352850.mp3" type="audio/mpeg">
 </audio>
 
+<audio id="coinSound">
+    <source src="coin.mp3" type="audio/mpeg">
+</audio>
+
 <canvas id="game" width="400" height="600"></canvas>
 
 <script>
+let touchStartX = 0;
+let touchEndX = 0;    
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+// 📱 Mobile control
+
+let isSwiping = false;
+
+// 👇 1. touchstart
+canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    touchStartX = e.touches[0].clientX;
+    isSwiping = true;
+});
+
+// 👇 2. touchmove (DÁN NGAY DƯỚI ĐÂY)
+canvas.addEventListener("touchmove", (e) => {
+    if (!isSwiping) return;
+
+    let currentX = e.touches[0].clientX;
+    let diff = currentX - touchStartX;
+
+    if (Math.abs(diff) > 30) {
+        if (diff > 0 && player.lane < 3) {
+            player.lane++;
+        } else if (diff < 0 && player.lane > 0) {
+            player.lane--;
+        }
+
+        isSwiping = false;
+    }
+});
+
+// 👇 3. touchend
+canvas.addEventListener("touchend", () => {
+    isSwiping = false;
+});
 const bgMusic = document.getElementById("bgMusic");
 bgMusic.volume = 0.5;
 
@@ -89,16 +128,6 @@ function spawnCoin() {
     coins.push({ x: lanes[lane] + 30, y: -20 });
 }
 
-function startGame() {
-    if(started) return;
-    started = true;
-    document.getElementById("menu").style.display = "none";
-    canvas.style.display = "block";
-    bgMusic.play().catch(err => console.log("Lỗi nhạc: ", err));
-    setInterval(spawnObstacle, 1200);
-    setInterval(spawnCoin, 1500);
-    draw();
-}
 
 document.addEventListener("keydown", (e) => {
     if(e.key === "Enter" && !started) startGame();
@@ -107,19 +136,33 @@ document.addEventListener("keydown", (e) => {
     if(e.key === "ArrowLeft" && player.lane > 0) player.lane--;
     if(e.key === "ArrowRight" && player.lane < 3) player.lane++;
 });
+function startGame() {
+    if (started) return;
 
+    started = true;
+
+    document.getElementById("menu").style.display = "none";
+    canvas.style.display = "block";
+
+    bgMusic.play().catch(err => console.log("Lỗi nhạc:", err));
+
+    setInterval(spawnObstacle, 1200);
+    setInterval(spawnCoin, 1500);
+
+    draw();
+}
+    let lastSpeedUp = 0;
 function draw() {
     if (!imageLoaded) {
         requestAnimationFrame(draw);
         return;
     }
 
-    if(gameOver) {
+    if (gameOver) {
         ctx.fillStyle = "white";
-        // Sửa font chữ Game Over
-        ctx.font = "20px 'Press Start 2P'"; 
+        ctx.font = "20px 'Press Start 2P'";
         ctx.textAlign = "center";
-        ctx.fillText("Bọn Ngu =))", 200, 300);
+        ctx.fillText("NGAUS NGER:))", 200, 300);
         ctx.font = "12px 'Press Start 2P'";
         ctx.fillText("Enter để chơi lại", 200, 350);
         return;
@@ -128,63 +171,95 @@ function draw() {
     ctx.fillStyle = "#111";
     ctx.fillRect(0, 0, 400, 600);
 
+    // lane
     ctx.strokeStyle = "#333";
-    for(let i=1; i<4; i++) {
-        ctx.beginPath(); ctx.moveTo(i*100, 0); ctx.lineTo(i*100, 600); ctx.stroke();
+    for (let i = 1; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * 100, 0);
+        ctx.lineTo(i * 100, 600);
+        ctx.stroke();
     }
 
-    player.x = lanes[player.lane] + 25; 
-    if(playerImg) {
+    // player
+    player.x = lanes[player.lane] + 25;
+    if (playerImg) {
         ctx.drawImage(playerImg, player.x - 25, player.y, player.width, player.height);
     } else {
         ctx.fillStyle = "lime";
         ctx.fillRect(player.x - 25, player.y, player.width, player.height);
     }
 
+    // obstacle
     ctx.fillStyle = "red";
-    for(let i = 0; i < obstacles.length; i++) {
+    for (let i = 0; i < obstacles.length; i++) {
         let o = obstacles[i];
         o.y += speed;
+
         ctx.fillRect(o.x, o.y, o.width, o.height);
-        if(player.x - 25 < o.x + o.width && player.x + 25 > o.x &&
-           player.y < o.y + o.height && player.y + player.height > o.y) {
+
+        if (
+            player.x - 25 < o.x + o.width &&
+            player.x + 25 > o.x &&
+            player.y < o.y + o.height &&
+            player.y + player.height > o.y
+        ) {
             gameOver = true;
+        }
+
+        if (o.y > 600) {
+            obstacles.splice(i, 1);
+            i--;
         }
     }
 
+    // coin
     ctx.fillStyle = "yellow";
     for (let i = 0; i < coins.length; i++) {
         let c = coins[i];
         c.y += speed;
-        ctx.beginPath(); ctx.arc(c.x, c.y, 10, 0, Math.PI * 2); ctx.fill();
-        if (player.x - 25 < c.x + 10 && player.x + 25 > c.x - 10 &&
-            player.y < c.y + 10 && player.y + player.height > c.y - 10) {
+
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (
+            player.x - 25 < c.x + 10 &&
+            player.x + 25 > c.x - 10 &&
+            player.y < c.y + 10 &&
+            player.y + player.height > c.y - 10
+        ) {
             coinScore++;
+
+            let sound = document.getElementById("coinSound");
+            sound.currentTime = 0;
+            sound.play();
+
+            coins.splice(i, 1);
+            i--;
+            continue;
+        }
+
+        if (c.y > 600) {
             coins.splice(i, 1);
             i--;
         }
     }
 
+    // score
     score++;
+
     ctx.fillStyle = "white";
-    // Sửa font chữ Score và Coins
     ctx.font = "12px 'Press Start 2P'";
     ctx.textAlign = "left";
     ctx.fillText("Score: " + score, 15, 30);
     ctx.fillText("Coins: " + coinScore, 15, 55);
-    // 1. Tăng điểm số
-score++;
 
-// 2. Logic tăng tốc độ: Cứ mỗi 500 điểm thì tăng thêm 0.5 speed
-if (score % 500 === 0) {
-    let speedMoi = speed + 2;
-    
-    // 3. Giới hạn tốc độ: Ví dụ tối đa là 20 (Super Hard)
-    // Nếu speedMoi vượt quá 20, nó sẽ lấy đúng mức 20
-    speed = Math.min(speedMoi, 20); 
-    
-    console.log("Tốc độ hiện tại: " + speed); // In ra để bạn theo dõi
-}
+    // speed tăng
+    if (score - lastSpeedUp >= 500) {
+        speed = Math.min(speed + 2, 20);
+        lastSpeedUp = score;
+    }
+
     requestAnimationFrame(draw);
 }
 </script>
