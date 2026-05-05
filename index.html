@@ -1,267 +1,273 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Game Nay La Cua Tao</title>
-    <!-- 1. Thêm link Google Fonts ở đây -->
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    
-    <style>
-        body { 
-            margin: 0; 
-            background: black; 
-            overflow: hidden; 
-            color: white; 
-            /* 2. Áp dụng font cho menu */
-            font-family: 'Press Start 2P', cursive; 
-            text-align: center; 
-        }
-        canvas { display: none; margin: auto; background: #111; border: 2px solid #333; }
-        #menu { position: absolute; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; flex-direction: column; cursor: pointer; }
-        .start-btn { 
-            padding: 15px 30px; 
-            font-size: 14px; /* Giảm size vì font này khá to */
-            background: #28a745; 
-            color: white; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            margin-top: 20px;
-            font-family: 'Press Start 2P', cursive;
-        }
-        h1 { font-size: 40px; margin-bottom: 10px; }
-        p { font-size: 12px; }
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Nay La Cua Tao</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<style>
+body {
+    margin: 0;
+    background: black;
+    overflow: hidden;
+    color: white;
+    font-family: 'Press Start 2P', cursive;
+    text-align: center;
+}
+
+canvas {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    background: #111;
+}
+
+#menu {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.start-btn {
+    padding: 15px 30px;
+    font-size: 14px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+</style>
 </head>
+
 <body>
 
 <div id="menu" onclick="startGame()">
     <h1>ChieuBhong</h1>
-    <p>Bấm vào màn hình để chơi</p>
-    <button class="start-btn">Bấm Vào Đây Nha Các Bố</button>
+    <p>Bấm để chơi</p>
+    <button class="start-btn">START</button>
 </div>
 
 <audio id="bgMusic" loop>
-    <source src="poorartistt-90s-game-music-no-copyright-352850.mp3" type="audio/mpeg">
+    <source src="poorartistt-90s-game-music-no-copyright-352850.mp3">
 </audio>
 
 <audio id="coinSound">
-    <source src="coin.mp3" type="audio/mpeg">
+    <source src="coin.mp3">
 </audio>
 
-<canvas id="game" width="400" height="600"></canvas>
+<canvas id="game"></canvas>
 
 <script>
-let touchStartX = 0;
-let touchEndX = 0;    
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-// 📱 Mobile control
 
-let isSwiping = false;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-// 👇 1. touchstart
-canvas.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    touchStartX = e.touches[0].clientX;
-    isSwiping = true;
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 });
 
-// 👇 2. touchmove (DÁN NGAY DƯỚI ĐÂY)
-canvas.addEventListener("touchmove", (e) => {
-    if (!isSwiping) return;
-
-    let currentX = e.touches[0].clientX;
-    let diff = currentX - touchStartX;
-
-    if (Math.abs(diff) > 30) {
-        if (diff > 0 && player.lane < 3) {
-            player.lane++;
-        } else if (diff < 0 && player.lane > 0) {
-            player.lane--;
-        }
-
-        isSwiping = false;
-    }
-});
-
-// 👇 3. touchend
-canvas.addEventListener("touchend", () => {
-    isSwiping = false;
-});
-const bgMusic = document.getElementById("bgMusic");
-bgMusic.volume = 0.5;
+// ===== LOAD ẢNH =====
+let loaded = 0;
+function checkLoad(){ loaded++; }
 
 let playerImg = new Image();
-let imageLoaded = false;
-
-playerImg.onload = function() {
-    imageLoaded = true;
-};
-
-playerImg.onerror = function() {
-    console.error("❌ Lỗi: Không tìm thấy file Quill.png");
-    imageLoaded = true; 
-    playerImg = null;    
-};
-
 playerImg.src = "Quill.png";
+playerImg.onload = checkLoad;
 
-let lanes = [40, 140, 240, 340];
-let player = { x: 180, y: 500, width: 50, height: 50, lane: 1 };
+let coinSprite = new Image();
+coinSprite.src = "coin-sprite.png";
+coinSprite.onload = checkLoad;
+
+// ===== GAME DATA =====
+let player = { lane: 1, y: 500, width: 50, height: 50 };
 let obstacles = [];
 let coins = [];
-let coinScore = 0;
+
 let score = 0;
+let coinScore = 0;
 let speed = 4;
+
 let gameOver = false;
 let started = false;
 
-function spawnObstacle() {
-    if(gameOver) return;
-    let lane = Math.floor(Math.random() * 4);
-    obstacles.push({ x: lanes[lane] + 5, y: -60, width: 50, height: 50 });
+// ===== SPRITE CONFIG =====
+const TOTAL_FRAMES = 6;
+const FRAME_WIDTH = 16;
+const FRAME_HEIGHT = 16;
+
+coinSprite.onload = function(){
+    FRAME_WIDTH = coinSprite.width / TOTAL_FRAMES;
+    FRAME_HEIGHT = coinSprite.height;
+    checkLoad();
+};
+
+// ===== SPAWN =====
+function spawnObstacle(){
+    if (gameOver) return;
+    let lane = Math.floor(Math.random()*4);
+    let laneWidth = canvas.width/4;
+
+    obstacles.push({
+        x: lane*laneWidth + laneWidth/2 -25,
+        y: -60,
+        w: 50,
+        h: 50
+    });
 }
 
-function spawnCoin() {
-    if(gameOver) return;
-    let lane = Math.floor(Math.random() * 4);
-    coins.push({ x: lanes[lane] + 30, y: -20 });
+function spawnCoin(){
+    if (gameOver) return;
+    let lane = Math.floor(Math.random()*4);
+    let laneWidth = canvas.width/4;
+
+    coins.push({
+        x: lane*laneWidth + laneWidth/2,
+        y: -30,
+        frame: 0
+    });
 }
 
+// ===== CONTROL =====
+document.addEventListener("keydown", e=>{
+    if(e.key==="Enter" && !started) startGame();
+    if(gameOver && e.key==="Enter") location.reload();
 
-document.addEventListener("keydown", (e) => {
-    if(e.key === "Enter" && !started) startGame();
-    if(gameOver && e.key === "Enter") location.reload();
     if(!started || gameOver) return;
-    if(e.key === "ArrowLeft" && player.lane > 0) player.lane--;
-    if(e.key === "ArrowRight" && player.lane < 3) player.lane++;
-});
-function startGame() {
-    if (started) return;
 
+    if(e.key==="ArrowLeft" && player.lane>0) player.lane--;
+    if(e.key==="ArrowRight" && player.lane<3) player.lane++;
+});
+
+// ===== START =====
+function startGame(){
+    if(started) return;
     started = true;
 
-    document.getElementById("menu").style.display = "none";
-    canvas.style.display = "block";
+    document.getElementById("menu").style.display="none";
+    canvas.style.display="block";
 
-    bgMusic.play().catch(err => console.log("Lỗi nhạc:", err));
+    document.getElementById("bgMusic").play().catch(()=>{});
 
-    setInterval(spawnObstacle, 1200);
-    setInterval(spawnCoin, 1500);
+    setInterval(spawnObstacle,1200);
+    setInterval(spawnCoin,1500);
 
     draw();
 }
-    let lastSpeedUp = 0;
-function draw() {
-    if (!imageLoaded) {
+
+// ===== DRAW =====
+let lastSpeedUp = 0;
+
+function draw(){
+    if(loaded < 2){
         requestAnimationFrame(draw);
         return;
     }
 
-    if (gameOver) {
-        ctx.fillStyle = "white";
-        ctx.font = "20px 'Press Start 2P'";
-        ctx.textAlign = "center";
-        ctx.fillText("NGAUS NGER:))", 200, 300);
-        ctx.font = "12px 'Press Start 2P'";
-        ctx.fillText("Enter để chơi lại", 200, 350);
+    if(gameOver){
+        ctx.fillStyle="white";
+        ctx.font="20px 'Press Start 2P'";
+        ctx.textAlign="center";
+        ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
         return;
     }
 
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, 400, 600);
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    let laneWidth = canvas.width/4;
 
     // lane
-    ctx.strokeStyle = "#333";
-    for (let i = 1; i < 4; i++) {
+    ctx.strokeStyle="#333";
+    for(let i=1;i<4;i++){
+        let x=i*laneWidth;
         ctx.beginPath();
-        ctx.moveTo(i * 100, 0);
-        ctx.lineTo(i * 100, 600);
+        ctx.moveTo(x,0);
+        ctx.lineTo(x,canvas.height);
         ctx.stroke();
     }
 
     // player
-    player.x = lanes[player.lane] + 25;
-    if (playerImg) {
-        ctx.drawImage(playerImg, player.x - 25, player.y, player.width, player.height);
-    } else {
-        ctx.fillStyle = "lime";
-        ctx.fillRect(player.x - 25, player.y, player.width, player.height);
-    }
+    let px = player.lane*laneWidth + laneWidth/2;
+    ctx.drawImage(playerImg, px-25, player.y, 50, 50);
 
     // obstacle
-    ctx.fillStyle = "red";
-    for (let i = 0; i < obstacles.length; i++) {
-        let o = obstacles[i];
-        o.y += speed;
+    ctx.fillStyle="red";
+    for(let i=0;i<obstacles.length;i++){
+        let o=obstacles[i];
+        o.y+=speed;
 
-        ctx.fillRect(o.x, o.y, o.width, o.height);
+        ctx.fillRect(o.x,o.y,o.w,o.h);
 
-        if (
-            player.x - 25 < o.x + o.width &&
-            player.x + 25 > o.x &&
-            player.y < o.y + o.height &&
-            player.y + player.height > o.y
-        ) {
-            gameOver = true;
+        if(px-25 < o.x+o.w && px+25 > o.x &&
+           player.y < o.y+o.h && player.y+50 > o.y){
+            gameOver=true;
         }
 
-        if (o.y > 600) {
-            obstacles.splice(i, 1);
+        if(o.y>canvas.height){
+            obstacles.splice(i,1);
             i--;
         }
     }
 
     // coin
-    ctx.fillStyle = "yellow";
-    for (let i = 0; i < coins.length; i++) {
-        let c = coins[i];
-        c.y += speed;
+    for(let i=0;i<coins.length;i++){
+        let c=coins[i];
+        c.y+=speed;
 
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);
-        ctx.fill();
+        c.frame+=0.2;
+        if(c.frame>=TOTAL_FRAMES) c.frame=0;
 
-        if (
-            player.x - 25 < c.x + 10 &&
-            player.x + 25 > c.x - 10 &&
-            player.y < c.y + 10 &&
-            player.y + player.height > c.y - 10
-        ) {
+        let f=Math.floor(c.frame);
+
+        ctx.drawImage(
+            coinSprite,
+            f*FRAME_WIDTH,0,
+            FRAME_WIDTH,FRAME_HEIGHT,
+            c.x-15,c.y-15,
+            30,30
+        );
+
+        if(px-25 < c.x+15 && px+25 > c.x-15 &&
+           player.y < c.y+15 && player.y+50 > c.y){
+
             coinScore++;
+            document.getElementById("coinSound").play();
 
-            let sound = document.getElementById("coinSound");
-            sound.currentTime = 0;
-            sound.play();
-
-            coins.splice(i, 1);
+            coins.splice(i,1);
             i--;
-            continue;
         }
 
-        if (c.y > 600) {
-            coins.splice(i, 1);
+        if(c.y>canvas.height){
+            coins.splice(i,1);
             i--;
         }
     }
 
     // score
     score++;
+    ctx.fillStyle="white";
+    ctx.font="12px 'Press Start 2P'";
+    ctx.fillText("Score: "+score,15,30);
+    ctx.fillText("Coins: "+coinScore,15,55);
 
-    ctx.fillStyle = "white";
-    ctx.font = "12px 'Press Start 2P'";
-    ctx.textAlign = "left";
-    ctx.fillText("Score: " + score, 15, 30);
-    ctx.fillText("Coins: " + coinScore, 15, 55);
-
-    // speed tăng
-    if (score - lastSpeedUp >= 500) {
-        speed = Math.min(speed + 2, 20);
+    // speed up
+    if(score - lastSpeedUp >= 500){
+        speed = Math.min(speed+2,20);
         lastSpeedUp = score;
     }
 
     requestAnimationFrame(draw);
 }
 </script>
+
 </body>
 </html>
